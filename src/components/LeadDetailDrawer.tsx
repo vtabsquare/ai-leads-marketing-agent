@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
-import type { Lead } from '../data';
+import { resolveLeadUrl, type Lead } from '../data';
 
 interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -24,6 +24,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onComposeOutreach,
 }) => {
   if (!lead) return null;
+  const postUrl = resolveLeadUrl(lead);
 
   return (
     <div
@@ -76,9 +77,36 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.8px', color: '#46672c' }}>
                 PROSPECT DOSSIER
               </div>
-              <h2 style={{ margin: '2px 0 0', fontSize: '20px', fontWeight: 700, color: '#142019' }}>
-                {lead.name}
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ margin: '2px 0 0', fontSize: '20px', fontWeight: 700, color: '#142019' }}>
+                  {lead.name}
+                </h2>
+                {postUrl && (
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open original post or profile in new tab"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      color: '#2d4b1a',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      background: '#edf4ea',
+                      border: '1px solid #cce2c3',
+                      padding: '2px 7px',
+                      borderRadius: 4,
+                      marginTop: 3,
+                    }}
+                  >
+                    <span>View Post</span>
+                    <ArrowUpRight size={12} />
+                  </a>
+                )}
+              </div>
               <span style={{ fontSize: '13px', color: '#637367' }}>
                 {lead.role} <i>at</i> <strong>{lead.company}</strong>
               </span>
@@ -189,6 +217,31 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               >
                 “{lead.excerpt}”
               </p>
+              {postUrl && (
+                <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px solid #edf2ec', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '11px', color: '#68786a', fontWeight: 500 }}>Live discussion source:</span>
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      background: '#1d3215',
+                      color: '#d4f682',
+                      borderRadius: '5px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <ArrowUpRight size={13} />
+                    Open Live Post ↗
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -254,29 +307,54 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             <ShieldCheck size={14} color="#3c6b1d" />
             <span>Review context before outreach</span>
           </div>
-          <button
-            className="primary-button"
-            onClick={() => {
-              onClose();
-              onComposeOutreach(lead);
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 18px',
-              background: '#c9f36a',
-              color: '#142019',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            <Send size={14} />
-            Draft personalized outreach
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {postUrl && (
+              <a
+                href={postUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 14px',
+                  background: '#ffffff',
+                  color: '#244015',
+                  border: '1px solid #c9d8c3',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                }}
+              >
+                <ArrowUpRight size={14} />
+                Open Post
+              </a>
+            )}
+            <button
+              className="primary-button"
+              onClick={() => {
+                onClose();
+                onComposeOutreach(lead);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#c9f36a',
+                color: '#142019',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              <Send size={14} />
+              Draft personalized outreach
+            </button>
+          </div>
         </div>
       </div>
     </div>

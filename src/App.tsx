@@ -66,6 +66,7 @@ import {
   type Chunk,
   type KnowledgeSource,
   type Lead,
+  resolveLeadUrl,
 } from './data';
 import {
   initialWorkflows,
@@ -196,21 +197,33 @@ function App() {
     // 1. Load live leads from Supabase if table exists
     fetchSupabaseLeads().then((dbLeads) => {
       if (dbLeads && dbLeads.length > 0) {
-        const mapped: Lead[] = dbLeads.map((dl) => ({
-          id: dl.id,
-          name: dl.name,
-          role: dl.role,
-          company: dl.company,
-          initials: dl.initials,
-          source: dl.source,
-          excerpt: dl.excerpt,
-          intent: dl.intent,
-          color: (dl.color as any) || 'sage',
-          addedThisWeek: dl.added_this_week,
-          fetchedDate: dl.fetched_date,
-          fetchedTime: dl.fetched_time,
-          fetchedTimestamp: Number(dl.fetched_timestamp),
-        }));
+        const mapped: Lead[] = dbLeads.map((dl) => {
+          const rawUrl = dl.source_url || (dl as any).sourceUrl || '';
+          const resolvedUrl = rawUrl || resolveLeadUrl({
+            name: dl.name,
+            source: dl.source,
+            sourceUrl: rawUrl,
+            excerpt: dl.excerpt,
+            company: dl.company,
+            role: dl.role,
+          });
+          return {
+            id: dl.id,
+            name: dl.name,
+            role: dl.role,
+            company: dl.company,
+            initials: dl.initials,
+            source: dl.source,
+            excerpt: dl.excerpt,
+            intent: dl.intent,
+            color: (dl.color as any) || 'sage',
+            addedThisWeek: dl.added_this_week,
+            fetchedDate: dl.fetched_date,
+            fetchedTime: dl.fetched_time,
+            fetchedTimestamp: Number(dl.fetched_timestamp),
+            sourceUrl: resolvedUrl,
+          };
+        });
         setLeads(mapped);
       }
     });
@@ -958,6 +971,7 @@ function LeadBotPage({
           fetched_date: newLead.fetchedDate,
           fetched_time: newLead.fetchedTime,
           fetched_timestamp: newLead.fetchedTimestamp,
+          source_url: newLead.sourceUrl,
         });
       });
 
@@ -1089,7 +1103,7 @@ function LeadBotPage({
         )}
 
         <div className="lead-list">
-          <div className="lead-table-header" style={{ display: 'grid', gridTemplateColumns: '36px 42px minmax(140px, 1.2fr) minmax(200px, 2fr) 110px 80px 120px' }}>
+          <div className="lead-table-header" style={{ display: 'grid', gridTemplateColumns: '36px 42px minmax(140px, 1.2fr) minmax(200px, 2fr) 110px 80px 150px' }}>
             <span style={{ display: 'grid', placeItems: 'center' }}>
               <input
                 type="checkbox"
@@ -1106,64 +1120,120 @@ function LeadBotPage({
             <span style={{ textAlign: 'center' }}>Intent</span>
             <span>Outreach</span>
           </div>
-          {visibleLeads.map((lead, index) => (
-            <div
-              className="lead-row"
-              key={lead.id}
-              onClick={() => setInspectingLead(lead)}
-              style={{
-                animationDelay: `${index * 45}ms`,
-                cursor: 'pointer',
-                display: 'grid',
-                gridTemplateColumns: '36px 42px minmax(140px, 1.2fr) minmax(200px, 2fr) 110px 80px 120px',
-              }}
-            >
-              <div style={{ display: 'grid', placeItems: 'center' }} onClick={(e) => toggleSelectLead(lead.id, e)}>
-                <input
-                  type="checkbox"
-                  checked={selectedLeadIds.has(lead.id)}
-                  onChange={() => {}}
-                  style={{ cursor: 'pointer' }}
-                />
-              </div>
-              <div className={`avatar avatar-${lead.color}`}>{lead.initials}</div>
-              <div className="lead-primary">
-                <strong>{lead.name}</strong>
-                <span>{lead.role} <i>at</i> {lead.company}</span>
-              </div>
-              <div className="lead-signal">
-                <span className="signal-source">
-                  {lead.sourceUrl ? (
-                    <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'inherit', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '2px' }}>
-                      {lead.source}
-                    </a>
-                  ) : lead.source}
-                </span>
-                <span className="lead-quote">"{lead.excerpt}"</span>
-              </div>
-              <div className="lead-fetched-col">
-                <span className="lead-fetched-pill">
-                  <Calendar size={10} />
-                  {lead.fetchedDate}
-                </span>
-                <span className="lead-fetched-time">{lead.fetchedTime}</span>
-              </div>
-              <div className={`intent-score${lead.intent >= 88 ? ' intent-high' : ''}`}>
-                <div className="intent-number">{lead.intent}<small>/100</small></div>
-                <div className="intent-track"><i style={{ width: `${lead.intent}%` }} /></div>
-                <span>intent</span>
-              </div>
-              <button
-                className="lead-action"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setComposingLead(lead);
+          {visibleLeads.map((lead, index) => {
+            const postUrl = resolveLeadUrl(lead);
+            return (
+              <div
+                className="lead-row"
+                key={lead.id}
+                onClick={() => setInspectingLead(lead)}
+                style={{
+                  animationDelay: `${index * 45}ms`,
+                  cursor: 'pointer',
+                  display: 'grid',
+                  gridTemplateColumns: '36px 42px minmax(140px, 1.2fr) minmax(200px, 2fr) 110px 80px 150px',
                 }}
               >
-                Draft outreach <ArrowRight size={13} />
-              </button>
-            </div>
-          ))}
+                <div style={{ display: 'grid', placeItems: 'center' }} onClick={(e) => toggleSelectLead(lead.id, e)}>
+                  <input
+                    type="checkbox"
+                    checked={selectedLeadIds.has(lead.id)}
+                    onChange={() => {}}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </div>
+                <div className={`avatar avatar-${lead.color}`}>{lead.initials}</div>
+                <div className="lead-primary">
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Open original post or profile in new tab"
+                    style={{
+                      color: '#142019',
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      width: 'fit-content',
+                    }}
+                  >
+                    <strong style={{ textDecoration: 'underline', textDecorationColor: '#b8ccb5', textUnderlineOffset: '2px' }}>
+                      {lead.name}
+                    </strong>
+                    <ExternalLink size={11} style={{ color: '#4a6b30', flexShrink: 0 }} />
+                  </a>
+                  <span>{lead.role} <i>at</i> {lead.company}</span>
+                </div>
+                <div className="lead-signal">
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Open live discussion in new tab"
+                    style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}
+                  >
+                    <span className="signal-source" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ textDecoration: 'underline', textDecorationColor: '#88a878', textUnderlineOffset: '2px', fontWeight: 600 }}>
+                        {lead.source}
+                      </span>
+                      <ExternalLink size={10} style={{ color: '#4a6b30' }} />
+                    </span>
+                    <span className="lead-quote" style={{ display: 'block' }}>"{lead.excerpt}"</span>
+                  </a>
+                </div>
+                <div className="lead-fetched-col">
+                  <span className="lead-fetched-pill">
+                    <Calendar size={10} />
+                    {lead.fetchedDate}
+                  </span>
+                  <span className="lead-fetched-time">{lead.fetchedTime}</span>
+                </div>
+                <div className={`intent-score${lead.intent >= 88 ? ' intent-high' : ''}`}>
+                  <div className="intent-number">{lead.intent}<small>/100</small></div>
+                  <div className="intent-track"><i style={{ width: `${lead.intent}%` }} /></div>
+                  <span>intent</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    className="lead-action"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setComposingLead(lead);
+                    }}
+                  >
+                    Draft outreach <ArrowRight size={13} />
+                  </button>
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="lead-open-btn"
+                    title="Open original post in new tab"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      background: '#f2f6ef',
+                      border: '1px solid #d4ded0',
+                      color: '#2b4719',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              </div>
+            );
+          })}
           {leads.length === 0 ? (
             <div style={{ padding: '64px 20px', textAlign: 'center', color: '#7a877d' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(201, 243, 106, 0.12)', color: '#c9f36a', display: 'grid', placeItems: 'center', margin: '0 auto 16px' }}>

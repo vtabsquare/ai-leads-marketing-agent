@@ -19,6 +19,7 @@ export interface DbLead {
   fetched_date: string;
   fetched_time: string;
   fetched_timestamp: number;
+  source_url?: string;
   created_at?: string;
 }
 

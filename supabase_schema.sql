@@ -21,8 +21,12 @@ create table if not exists public.leads (
     fetched_date text not null,
     fetched_time text not null,
     fetched_timestamp bigint not null,
+    source_url text,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Migration for existing tables:
+alter table if exists public.leads add column if not exists source_url text;
 
 -- 2. KNOWLEDGE SOURCES TABLE (RAG Knowledge Bases & Docs)
 create table if not exists public.knowledge_sources (

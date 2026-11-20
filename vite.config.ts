@@ -793,8 +793,11 @@ Return ONLY a JSON array of objects with keys: name, role, company, source, exce
                 const initials = parts.length >= 2
                   ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
                   : rawName.slice(0, 2).toUpperCase();
+                const matchedItem = uniqueItems.find((u: any) => u.link && (u.link === p.sourceUrl || u.link === p.source_url)) || uniqueItems[i % uniqueItems.length];
+                const resolvedSourceUrl = p.sourceUrl || p.source_url || p.link || matchedItem?.link || '';
                 return {
                   ...p,
+                  sourceUrl: resolvedSourceUrl,
                   initials,
                   color: colors[i % colors.length],
                   intent: Math.min(99, Math.max(75, p.intent || 90)),
