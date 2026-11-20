@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+{{FONT_FACES}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  width: {{WIDTH}}px;
+  height: {{HEIGHT}}px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  background: {{PANEL_BG}};
+  color: {{TEXT_COLOR}};
+}
+.canvas {
+  width: 100%;
+  height: 100%;
+  padding: {{MARGIN_Y}}px {{MARGIN_X}}px;
+  display: grid;
+  overflow: hidden;
+}
+body.landscape .canvas {
+  grid-template-columns: 50% 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 44px;
+  row-gap: 20px;
+}
+body.portrait .canvas {
+  grid-template-columns: 100%;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 26px;
+}
+[data-zone="logo"] {
+  display: inline-flex; align-items: center; gap: 12px; width: fit-content;
+}
+body.landscape [data-zone="logo"] { grid-column: 1 / 2; grid-row: 1 / 2; }
+.logo-mark {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 20px; overflow: hidden;
+}
+.logo-mark img { width: 100%; height: 100%; object-fit: cover; }
+.logo-text {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 23px; color: {{TEXT_COLOR}};
+}
+.headline-wrap { align-self: center; }
+body.landscape .headline-wrap { grid-column: 1 / 2; grid-row: 2 / 3; }
+[data-zone="headline"] {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: {{HEADLINE_SIZE}}px;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  color: {{TEXT_COLOR}};
+}
+[data-zone="headline"] .accent { color: {{ACCENT_HEX}}; }
+[data-zone="hero-visual"] {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.landscape [data-zone="hero-visual"] {
+  grid-column: 2 / 3;
+  grid-row: 1 / 4;
+}
+.arch-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px 999px 28px 28px;
+  overflow: hidden;
+  border: 3px solid {{ACCENT_HEX}};
+  box-shadow: 0 28px 64px rgba(0,0,0,0.34);
+}
+.arch-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+[data-zone="info-strip"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.16);
+}
+body.light-theme [data-zone="info-strip"] {
+  border-top-color: rgba(20,32,25,0.16);
+}
+body.landscape [data-zone="info-strip"] { grid-column: 1 / 2; grid-row: 3 / 4; }
+.meta-items {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: {{SUBTEXT_COLOR}};
+}
+.meta-item { display: inline-flex; align-items: center; gap: 8px; }
+.meta-item svg { width: 19px; height: 19px; stroke: {{ACCENT_HEX}}; flex-shrink: 0; }
+.chip-pill {
+  display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 999px;
+  background: rgba(128,128,128,0.16);
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: {{TEXT_COLOR}};
+}
+.cta-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 12px 24px; border-radius: 999px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: {{META_FONT_SIZE}}px;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body class="{{ORIENTATION}} {{THEME_CLASS}}">
+  <div class="canvas">
+    <div data-zone="logo">
+      <div class="logo-mark">{{LOGO_HTML}}</div>
+      <span class="logo-text">Vtab.</span>
+    </div>
+    <div class="headline-wrap">
+      <h1 data-zone="headline">{{HEADLINE_HTML}}</h1>
+    </div>
+    <div data-zone="hero-visual">
+      <div class="arch-frame">{{HERO_IMG_HTML}}</div>
+    </div>
+    <div data-zone="info-strip">
+      <div class="meta-items">{{META_OR_CHIPS_HTML}}</div>
+      {{CTA_HTML}}
+    </div>
+  </div>
+</body>
+</html>

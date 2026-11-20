@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: vtab-ai-leads-marketing-agent
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install && pnpm run build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: VITE_GEMINI_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: META_PAGE_ID
+        sync: false
+      - key: META_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: PIAPI_API_KEY
+        sync: false

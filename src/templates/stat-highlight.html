@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+{{FONT_FACES}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  width: {{WIDTH}}px;
+  height: {{HEIGHT}}px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  background: {{DOMINANT_DARK}};
+  color: #ffffff;
+}
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: {{MARGIN_Y}}px {{MARGIN_X}}px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
+  overflow: hidden;
+}
+.hero-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.text-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 14, 12, 0.90) 0%,
+    rgba(10, 14, 12, {{OVERLAY_OPACITY}}) 52%,
+    rgba(10, 14, 12, 0.35) 100%
+  );
+}
+[data-zone="logo"] {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+}
+.logo-mark {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 20px; overflow: hidden;
+}
+.logo-mark img { width: 100%; height: 100%; object-fit: cover; }
+.logo-text {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 23px; color: #ffffff;
+}
+.hero-center {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.stat-number {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: {{STAT_SIZE}}px;
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+  color: {{ACCENT_HEX}};
+}
+[data-zone="headline"] {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: {{HEADLINE_SIZE}}px;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  max-width: 85%;
+}
+[data-zone="headline"] .accent { color: {{ACCENT_HEX}}; }
+[data-zone="info-strip"] {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.22);
+}
+.meta-items {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: #eef3ef;
+}
+.meta-item { display: inline-flex; align-items: center; gap: 8px; }
+.meta-item svg { width: 20px; height: 20px; stroke: {{ACCENT_HEX}}; flex-shrink: 0; }
+.chip-pill {
+  display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: #ffffff;
+}
+.cta-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 13px 26px; border-radius: 999px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: {{META_FONT_SIZE}}px;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body class="{{ORIENTATION}}">
+  <div class="canvas">
+    {{HERO_IMG_HTML}}
+    <div class="text-scrim"></div>
+    <div data-zone="logo">
+      <div class="logo-mark">{{LOGO_HTML}}</div>
+      <span class="logo-text">Vtab.</span>
+    </div>
+    <div class="hero-center">
+      <div class="stat-number">{{HERO_STAT}}</div>
+      <h1 data-zone="headline">{{HEADLINE_HTML}}</h1>
+    </div>
+    <div data-zone="info-strip">
+      <div class="meta-items">{{META_OR_CHIPS_HTML}}</div>
+      {{CTA_HTML}}
+    </div>
+  </div>
+</body>
+</html>

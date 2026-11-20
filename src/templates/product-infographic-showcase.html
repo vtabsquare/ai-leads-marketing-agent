@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+{{FONT_FACES}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  width: {{WIDTH}}px;
+  height: {{HEIGHT}}px;
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  background: #060913;
+  color: #ffffff;
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: {{MARGIN_Y}}px {{MARGIN_X}}px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 48%, rgba(20, 45, 95, 0.45) 0%, rgba(6, 9, 19, 0.95) 70%, #04060c 100%);
+}
+
+/* Subtle tech grid backdrop */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(79, 140, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 140, 255, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Atmospheric glow behind hero */
+.center-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 65%;
+  height: 55%;
+  background: radial-gradient(ellipse at center, rgba(30, 144, 255, 0.28) 0%, rgba(79, 140, 255, 0.12) 45%, transparent 70%);
+  filter: blur(40px);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* TOP HEADER */
+.top-header {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(79, 140, 255, 0.12);
+  border: 1px solid rgba(79, 140, 255, 0.35);
+  box-shadow: 0 0 16px rgba(79, 140, 255, 0.2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #70b4ff;
+}
+
+.main-headline {
+  font-size: {{HEADLINE_SIZE}}px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  max-width: 95%;
+  margin: 0 auto;
+}
+
+.main-headline span.accent {
+  color: {{ACCENT_HEX}};
+  text-shadow: 0 0 24px rgba(79, 140, 255, 0.5);
+}
+
+.sub-headline {
+  font-size: {{META_FONT_SIZE}}px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9cb3d9;
+}
+
+/* MAIN STAGE (Center Hero + Flanking 4 Pillars) */
+.main-stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 27% 46% 27%;
+  align-items: center;
+  margin: 6px 0;
+  max-height: 58%;
+}
+
+/* Flanking feature callout pillars */
+.pillar-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 90%;
+  gap: 16px;
+}
+
+.pillar-column.left {
+  align-items: flex-end;
+  text-align: right;
+  padding-right: 12px;
+}
+
+.pillar-column.right {
+  align-items: flex-start;
+  text-align: left;
+  padding-left: 12px;
+}
+
+.feature-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 250px;
+}
+
+.pillar-column.left .feature-box {
+  align-items: flex-end;
+}
+
+.pillar-column.right .feature-box {
+  align-items: flex-start;
+}
+
+.feature-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(20, 32, 60, 0.75);
+  border: 1px solid rgba(79, 140, 255, 0.45);
+  box-shadow: 0 0 14px rgba(79, 140, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #70b4ff;
+}
+
+.feature-icon-wrapper svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.feature-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.feature-desc {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8fa5c7;
+  line-height: 1.3;
+}
+
+/* CENTER HERO: 3D Holographic / Glass Device Frame */
+.hero-device-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.device-frame-3d {
+  position: relative;
+  width: 100%;
+  max-width: 490px;
+  aspect-ratio: 16 / 10.5;
+  border-radius: 16px;
+  padding: 6px;
+  background: linear-gradient(135deg, rgba(79, 140, 255, 0.45) 0%, rgba(20, 32, 60, 0.6) 40%, rgba(6, 12, 28, 0.9) 100%);
+  border: 1.5px solid rgba(130, 185, 255, 0.55);
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.8),
+    0 0 35px rgba(30, 144, 255, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  transform: perspective(1000px) rotateX(6deg) rotateY(-3deg);
+  overflow: hidden;
+}
+
+.device-inner-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #090e1a;
+  display: flex;
+}
+
+.device-inner-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* BOTTOM PROPOSITION & CTA */
+.bottom-footer {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.value-statement {
+  font-size: {{META_FONT_SIZE}}px;
+  font-weight: 700;
+  color: #e2eafc;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+}
+
+.cta-button-glowing {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 28px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 45, 95, 0.85) 0%, rgba(10, 22, 50, 0.95) 100%);
+  border: 1.5px solid #4f8cff;
+  box-shadow: 
+    0 0 20px rgba(79, 140, 255, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.cta-main-text {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.cta-sub-text {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8cb8ff;
+  margin-top: 1px;
+}
+</style>
+</head>
+<body class="{{ORIENTATION}}">
+<div class="canvas">
+  <div class="grid-overlay"></div>
+  <div class="center-glow"></div>
+
+  <!-- TOP HEADER -->
+  <div class="top-header">
+    <div class="badge-tag">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span>Now Live · Official Launch</span>
+    </div>
+    <div class="main-headline" data-zone="headline">
+      {{HEADLINE_HTML}}
+    </div>
+    <div class="sub-headline">
+      The Power of Effortless Enterprise Reporting
+    </div>
+  </div>
+
+  <!-- MAIN STAGE -->
+  <div class="main-stage">
+    <!-- LEFT PILLARS -->
+    <div class="pillar-column left">
+      <div class="feature-box">
+        <div class="feature-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        </div>
+        <div class="feature-title">{{FEATURE_1_TITLE}}</div>
+        <div class="feature-desc">{{FEATURE_1_DESC}}</div>
+      </div>
+      <div class="feature-box">
+        <div class="feature-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="feature-title">{{FEATURE_2_TITLE}}</div>
+        <div class="feature-desc">{{FEATURE_2_DESC}}</div>
+      </div>
+    </div>
+
+    <!-- CENTER 3D HERO DEVICE -->
+    <div class="hero-device-wrapper" data-zone="mockup">
+      <div class="device-frame-3d">
+        <div class="device-inner-screen">
+          {{HERO_OR_SCREENSHOT_HTML}}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PILLARS -->
+    <div class="pillar-column right">
+      <div class="feature-box">
+        <div class="feature-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+        </div>
+        <div class="feature-title">{{FEATURE_3_TITLE}}</div>
+        <div class="feature-desc">{{FEATURE_3_DESC}}</div>
+      </div>
+      <div class="feature-box">
+        <div class="feature-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+        </div>
+        <div class="feature-title">{{FEATURE_4_TITLE}}</div>
+        <div class="feature-desc">{{FEATURE_4_DESC}}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM FOOTER -->
+  <div class="bottom-footer">
+    <div class="value-statement">
+      {{VALUE_STATEMENT}}
+    </div>
+    <div class="cta-button-glowing" data-zone="cta">
+      <div class="cta-main-text">{{CTA_TEXT_RAW}}</div>
+      <div class="cta-sub-text">Explore at vtabsquare.com</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+{{FONT_FACES}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  width: {{WIDTH}}px;
+  height: {{HEIGHT}}px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  background: {{DOMINANT_DARK}};
+  color: {{TEXT_COLOR}};
+}
+.canvas {
+  width: 100%;
+  height: 100%;
+  padding: {{MARGIN_Y}}px {{MARGIN_X}}px;
+  display: grid;
+  gap: 24px;
+  background: linear-gradient(145deg, {{DOMINANT_DARK}} 0%, {{PANEL_BG}} 100%);
+}
+body.portrait .canvas {
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 100%;
+}
+body.landscape .canvas {
+  grid-template-columns: 50% 1fr;
+  grid-template-rows: auto 1fr;
+  column-gap: 32px;
+}
+[data-zone="logo"] {
+  display: inline-flex; align-items: center; gap: 12px; width: fit-content;
+}
+.logo-mark {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 20px; overflow: hidden;
+}
+.logo-mark img { width: 100%; height: 100%; object-fit: cover; }
+.logo-text {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 23px; color: {{TEXT_COLOR}};
+}
+.content-card {
+  background: {{PANEL_BG}};
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 24px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+  box-shadow: 0 24px 56px rgba(0,0,0,0.34);
+}
+body.landscape .content-card { grid-column: 1 / 2; grid-row: 2 / 3; padding: 28px; }
+body.portrait .content-card { grid-row: 3 / 4; }
+[data-zone="headline"] {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: {{HEADLINE_SIZE}}px;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  color: {{TEXT_COLOR}};
+}
+[data-zone="headline"] .accent { color: {{ACCENT_HEX}}; }
+[data-zone="hero-visual"] {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.16);
+  box-shadow: 0 28px 64px rgba(0,0,0,0.42);
+}
+body.landscape [data-zone="hero-visual"] { grid-column: 2 / 3; grid-row: 1 / 3; }
+body.portrait [data-zone="hero-visual"] { grid-row: 2 / 3; }
+[data-zone="hero-visual"] img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+[data-zone="info-strip"] {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+}
+.meta-items {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: {{SUBTEXT_COLOR}};
+}
+.meta-item { display: inline-flex; align-items: center; gap: 8px; }
+.meta-item svg { width: 19px; height: 19px; stroke: {{ACCENT_HEX}}; flex-shrink: 0; }
+.chip-pill {
+  display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 999px;
+  background: rgba(128,128,128,0.16);
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: {{TEXT_COLOR}};
+}
+.cta-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 12px 24px; border-radius: 999px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: {{META_FONT_SIZE}}px;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body class="{{ORIENTATION}} {{THEME_CLASS}}">
+  <div class="canvas">
+    <div data-zone="logo">
+      <div class="logo-mark">{{LOGO_HTML}}</div>
+      <span class="logo-text">Vtab.</span>
+    </div>
+    <div data-zone="hero-visual">{{HERO_IMG_HTML}}</div>
+    <div class="content-card">
+      <h1 data-zone="headline">{{HEADLINE_HTML}}</h1>
+      <div data-zone="info-strip">
+        <div class="meta-items">{{META_OR_CHIPS_HTML}}</div>
+        {{CTA_HTML}}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

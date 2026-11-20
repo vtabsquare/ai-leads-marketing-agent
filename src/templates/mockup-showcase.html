@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+{{FONT_FACES}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  width: {{WIDTH}}px;
+  height: {{HEIGHT}}px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  background: {{DOMINANT_DARK}};
+  color: #ffffff;
+}
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: {{MARGIN_Y}}px {{MARGIN_X}}px;
+  display: grid;
+  overflow: hidden;
+}
+body.portrait .canvas {
+  grid-template-rows: auto auto 1fr auto;
+  gap: 24px;
+}
+body.landscape .canvas {
+  grid-template-columns: 45% 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 40px;
+  row-gap: 18px;
+}
+.hero-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.text-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+body.portrait .text-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 14, 12, 0.76) 0%,
+    rgba(10, 14, 12, 0.44) 45%,
+    rgba(10, 14, 12, 0.10) 100%
+  );
+}
+body.landscape .text-scrim {
+  background: linear-gradient(
+    90deg,
+    rgba(10, 14, 12, 0.82) 0%,
+    rgba(10, 14, 12, 0.48) 44%,
+    rgba(10, 14, 12, 0.12) 100%
+  );
+}
+[data-zone="logo"] {
+  position: relative;
+  z-index: 2;
+  display: inline-flex; align-items: center; gap: 12px; width: fit-content;
+}
+body.landscape [data-zone="logo"] { grid-column: 1 / 2; grid-row: 1 / 2; }
+.logo-mark {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 20px; overflow: hidden;
+}
+.logo-mark img { width: 100%; height: 100%; object-fit: cover; }
+.logo-text {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 23px; color: #ffffff;
+}
+.headline-wrap {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+}
+body.landscape .headline-wrap { grid-column: 1 / 2; grid-row: 2 / 3; }
+[data-zone="headline"] {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: {{HEADLINE_SIZE}}px;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  color: #ffffff;
+}
+[data-zone="headline"] .accent { color: {{ACCENT_HEX}}; }
+[data-zone="mockup"] {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: perspective(1400px) rotateY(-10deg) rotateX(4deg);
+}
+body.portrait [data-zone="mockup"] {
+  justify-content: flex-end;
+  transform: perspective(1400px) rotateY(-8deg) rotateX(4deg);
+  align-self: end;
+}
+body.portrait .browser-frame {
+  max-width: 70%;
+}
+body.landscape [data-zone="mockup"] {
+  grid-column: 2 / 3;
+  grid-row: 1 / 4;
+  align-self: end;
+  margin-bottom: 8px;
+  transform: perspective(1400px) rotateY(-10deg) rotateX(4deg) scale(0.84);
+  transform-origin: bottom right;
+}
+.browser-frame {
+  width: 100%;
+  background: #141916;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 36px 80px rgba(0,0,0,0.58);
+  overflow: hidden;
+}
+.browser-bar {
+  height: 32px; padding: 0 14px; background: #1d2420;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; gap: 10px;
+}
+.dots { display: flex; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.url-pill {
+  flex: 1; max-width: 220px; height: 18px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  font-size: 10px; display: flex; align-items: center; padding: 0 10px;
+}
+.screen-body { width: 100%; background: #ffffff; aspect-ratio: 16 / 10; overflow: hidden; }
+.screen-body img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+[data-zone="info-strip"] {
+  position: relative;
+  z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+  padding: 14px 20px; border-radius: 14px;
+  background: rgba(12,17,14,0.88); border: 1px solid rgba(255,255,255,0.16);
+}
+body.landscape [data-zone="info-strip"] { grid-column: 1 / 2; grid-row: 3 / 4; }
+.meta-items {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: #eef3ef;
+}
+.meta-item { display: inline-flex; align-items: center; gap: 8px; }
+.meta-item svg { width: 18px; height: 18px; stroke: {{ACCENT_HEX}}; flex-shrink: 0; }
+.chip-pill {
+  display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  font-size: {{META_FONT_SIZE}}px; font-weight: 600; color: #ffffff;
+}
+.cta-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 12px 24px; border-radius: 999px;
+  background: {{ACCENT_HEX}}; color: {{CTA_TEXT_COLOR}};
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: {{META_FONT_SIZE}}px;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body class="{{ORIENTATION}}">
+  <div class="canvas">
+    {{HERO_IMG_HTML}}
+    <div class="text-scrim"></div>
+    <div data-zone="logo">
+      <div class="logo-mark">{{LOGO_HTML}}</div>
+      <span class="logo-text">Vtab.</span>
+    </div>
+    <div class="headline-wrap">
+      <h1 data-zone="headline">{{HEADLINE_HTML}}</h1>
+    </div>
+    <div data-zone="mockup">
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="dots">
+            <span class="dot" style="background:#ef4444"></span>
+            <span class="dot" style="background:#f59e0b"></span>
+            <span class="dot" style="background:#22c55e"></span>
+          </div>
+          <div class="url-pill">app.vtabsquare.com</div>
+        </div>
+        <div class="screen-body">{{SCREENSHOT_HTML}}</div>
+      </div>
+    </div>
+    <div data-zone="info-strip">
+      <div class="meta-items">{{META_OR_CHIPS_HTML}}</div>
+      {{CTA_HTML}}
+    </div>
+  </div>
+</body>
+</html>
