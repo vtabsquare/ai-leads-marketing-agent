@@ -64,16 +64,17 @@ export function resolveLeadUrl(lead: Partial<Lead>): string {
   const excerpt = (lead.excerpt || '').trim();
   const role = (lead.role || '').trim();
 
-  // 1. Reddit threads & profiles
+  // 1. Reddit discussions (ALWAYS navigate to the post/thread discussion, NEVER user profile!)
   if (name.startsWith('u/') || source.toLowerCase().includes('reddit')) {
-    if (name.startsWith('u/')) {
-      const cleanUser = name.replace(/^u\//, '');
-      return `https://www.reddit.com/user/${cleanUser}`;
-    }
     const subMatch = source.match(/r\/([a-zA-Z0-9_]+)/i);
     const subreddit = subMatch ? subMatch[1] : 'BusinessIntelligence';
-    const query = encodeURIComponent((excerpt || role || 'reporting tool').slice(0, 80));
-    return `https://www.reddit.com/r/${subreddit}/search/?q=${query}`;
+    const cleanExcerpt = excerpt
+      .replace(/^["'“”]+|["'“”]+$/g, '')
+      .replace(/[^\w\s-]/g, ' ')
+      .trim()
+      .slice(0, 60);
+    const query = encodeURIComponent(cleanExcerpt || role || 'reporting tool');
+    return `https://www.reddit.com/r/${subreddit}/search/?q=${query}&restrict_sr=1`;
   }
 
   // 2. LinkedIn discussions

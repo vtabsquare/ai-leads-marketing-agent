@@ -198,10 +198,17 @@ function App() {
     fetchSupabaseLeads().then((dbLeads) => {
       if (dbLeads && dbLeads.length > 0) {
         const mapped: Lead[] = dbLeads.map((dl) => {
-          const rawUrl = dl.source_url || (dl as any).sourceUrl || '';
+          let sourceText = dl.source || 'Web';
+          let parsedUrl = '';
+          if (sourceText.includes('|||')) {
+            const parts = sourceText.split('|||');
+            sourceText = parts[0];
+            parsedUrl = parts[1];
+          }
+          const rawUrl = parsedUrl || dl.source_url || (dl as any).sourceUrl || '';
           const resolvedUrl = rawUrl || resolveLeadUrl({
             name: dl.name,
-            source: dl.source,
+            source: sourceText,
             sourceUrl: rawUrl,
             excerpt: dl.excerpt,
             company: dl.company,
@@ -213,7 +220,7 @@ function App() {
             role: dl.role,
             company: dl.company,
             initials: dl.initials,
-            source: dl.source,
+            source: sourceText,
             excerpt: dl.excerpt,
             intent: dl.intent,
             color: (dl.color as any) || 'sage',
@@ -957,13 +964,16 @@ function LeadBotPage({
 
       // Persist each lead to Supabase
       newLeads.forEach((newLead) => {
+        const sourceWithUrl = newLead.sourceUrl
+          ? `${newLead.source}|||${newLead.sourceUrl}`
+          : newLead.source;
         insertSupabaseLead({
           id: newLead.id,
           name: newLead.name,
           role: newLead.role,
           company: newLead.company,
           initials: newLead.initials,
-          source: newLead.source,
+          source: sourceWithUrl,
           excerpt: newLead.excerpt,
           intent: newLead.intent,
           color: newLead.color,
@@ -971,7 +981,6 @@ function LeadBotPage({
           fetched_date: newLead.fetchedDate,
           fetched_time: newLead.fetchedTime,
           fetched_timestamp: newLead.fetchedTimestamp,
-          source_url: newLead.sourceUrl,
         });
       });
 
