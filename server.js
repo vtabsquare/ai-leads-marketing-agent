@@ -1,7 +1,7 @@
 import { preview } from 'vite';
 
-const port = Number(process.env.PORT) || 3000;
-const host = '0.0.0.0';
+const port = Number(process.env.PORT) || 3005;
+const host = process.env.HOST || '127.0.0.1';
 
 console.log(`[server] Initializing Vtab AI Leads & Marketing Agent production server on ${host}:${port}...`);
 
@@ -10,6 +10,7 @@ try {
     preview: {
       port,
       host,
+      strictPort: true,
       allowedHosts: true,
     },
   });
