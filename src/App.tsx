@@ -535,8 +535,8 @@ function App() {
         </div>
 
         <div className="workspace-switcher">
-          <div className="workspace-monogram">N</div>
-          <div className="workspace-copy"><span className="overline">WORKSPACE</span><strong>Northstar Labs</strong></div>
+          <div className="workspace-monogram" style={{ background: '#c9f36a', color: '#142019', fontWeight: 800 }}>V</div>
+          <div className="workspace-copy"><span className="overline">DEMO WORKSPACE</span><strong>VTAB Pilot Workspace</strong></div>
           <ChevronDown size={15} className="muted-icon" />
         </div>
 
@@ -593,11 +593,14 @@ function App() {
             <Settings2 size={17} strokeWidth={1.8} /><span>Settings</span>
           </button>
           <div className="profile-row">
-            <div className="profile-avatar">DM</div>
-            <div className="profile-copy"><strong>Devon Miller</strong><span>Workspace admin</span></div>
+            <div className="profile-avatar" style={{ background: '#c9f36a', color: '#142019', fontWeight: 700 }}>VP</div>
+            <div className="profile-copy">
+              <strong>vtabpilotuser</strong>
+              <span>Pilot demo account</span>
+            </div>
             <MoreHorizontal size={18} className="profile-more" />
           </div>
-          <div className="sidebar-footnote"><span className="green-pulse" /> All systems operational</div>
+          <div className="sidebar-footnote"><span className="green-pulse" /> Live interactive demo</div>
         </div>
       </aside>
 
@@ -605,7 +608,7 @@ function App() {
         <header className="topbar">
           <div className="topbar-left">
             <button className="mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen((current) => !current)}><Menu size={19} /></button>
-            <span className="breadcrumb-muted">Northstar Labs</span><ChevronRight size={14} className="breadcrumb-chevron" /><span className="breadcrumb-current">{title}</span>
+            <span className="breadcrumb-muted">VTAB Pilot Workspace</span><ChevronRight size={14} className="breadcrumb-chevron" /><span className="breadcrumb-current">{title}</span>
           </div>
           <div className="topbar-actions">
             <div className="command-wrap">
@@ -2757,7 +2760,7 @@ function MarketingPage({
       onAddApproval({
         type: channelName,
         title,
-        recipient: 'Northstar Labs',
+        recipient: 'VTAB Pilot Workspace',
         detail: text.slice(0, 100) + '…',
         badge: 'High intent match',
       });

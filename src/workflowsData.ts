@@ -72,7 +72,7 @@ export const defaultCampaignNodes: WorkflowNode[] = [
     itemsCount: '1 item',
     summary: 'Received campaign brief targeting platform migration planners.',
     config: {
-      initiator: 'Devon Miller (Admin)',
+      initiator: 'vtabpilotuser (Pilot Admin)',
       intentThreshold: 75,
       mode: 'Multi-Agent Collaborative',
       priority: 'High',
@@ -238,7 +238,7 @@ export const defaultCampaignNodes: WorkflowNode[] = [
     },
     outputData: {
       gateStatus: 'Approved for outbound queue',
-      reviewer: 'Devon Miller',
+      reviewer: 'vtabpilotuser',
     },
     position: { x: 1140, y: 180 },
   },
