@@ -105,10 +105,13 @@ function getPostDate(item: any): string {
 }
 
 const NOISE_PATTERN =
-  /\b(hiring|job|jobs|career|careers|salary|ctc|ectc|notice\s*period|resume|send\s*(?:your\s*)?cv|apply\s*now|opportunity|openings?|vacanc(?:y|ies)|recruiter|recruitment|talent\s*acquisition|years?\s*(?:of\s*)?experienc|experienced\s*professionals?|looking\s*for\s*a\s*role|looking\s*for\s*work|open\s*to\s*work|join\s+(?:us|our\s+team)|brand[\s-]?new\s+role|looking\s+for\s+(?:a|an)\s+(?:senior|junior|lead|principal|experienced|certified|freelance|full[\s-]?time|part[\s-]?time|remote)?\s*(?:[\w\s]{0,25})?\b(?:specialist|developer|engineer|analyst|consultant|architect|administrator|intern|candidate)|free\s*course|certification|bootcamp|webinar|tutorial|cheat\s*sheet|interview\s*questions|fresher|interns?)\b|#\w*jobs?\b/i;
+  /\b(hiring|job|jobs|career|careers|salary|ctc|ectc|notice\s*period|resume|send\s*(?:your\s*)?cv|apply\s*now|opportunity|openings?|vacanc(?:y|ies)|recruiter|recruitment|talent\s*acquisition|years?\s*(?:of\s*)?experienc|experienced\s*professionals?|looking\s*for\s*a\s*role|looking\s*for\s*work|open\s*to\s*work|join\s+(?:us|our\s+team)|brand[\s-]?new\s+role|looking\s+for\s+(?:a|an)\s+(?:senior|junior|lead|principal|experienced|certified|freelance|full[\s-]?time|part[\s-]?time|remote)?\s*(?:[\w\s]{0,25})?\b(?:specialist|developer|engineer|analyst|consultant|architect|administrator|intern|candidate)|free\s*course|certification|bootcamp|webinar|tutorial|cheat\s*sheet|interview\s*questions|fresher|interns?|no\s+alternative\s+text\s+description|ebook|e-book|whitepaper|latest\s+update\s+for|compared\s+on\s+features|criteria\s+for\s+evaluating|download\s+(?:our|the)\s+guide|tools?\s+compared)\b|\b\d+\s+(?:best|top)\b|#\w*jobs?\b/i;
 
 const BUYING_SIGNAL_PATTERN =
-  /\b(alternative|alternatives|replace|replacing|switch|switching|migrate|migrating|cheaper|low[\s-]?cost|affordable|pricing|expensive|licens(?:e|ing)|recommend|recommendation|recommendations|suggestions?|evaluating|compare|comparison|instead\s+of|what\s+(?:tool|software|app|bi|platform)|which\s+(?:tool|software|app|bi|platform)|best\s+(?:tool|software|app|alternative)|looking\s+for\s+(?:a|an|some)\s+(?:[\w\s]{0,25})?\b(?:tool|software|app|platform|solution|alternative|dashboard|reporting|analytics)|trying\s+to\s+find\s+(?:a|an)\s+(?:[\w\s]{0,20})?\b(?:tool|software|app|platform|way)|need\s+(?:a|an)\s+(?:tool|software|app|reporting|dashboard|bi|analytics)|worth\s+it|anyone\s+using)\b/i;
+  /\b(alternative|alternatives|replace|replacing|switch|switching|migrate|migrating|cheaper|low[\s-]?cost|affordable|pricing|expensive|licens(?:e|ing)|recommend|recommendation|recommendations|suggestions?|evaluating|instead\s+of|what\s+(?:tool|software|app|bi|platform)|which\s+(?:tool|software|app|bi|platform)|looking\s+for\s+(?:a|an|some)\s+(?:[\w\s]{0,25})?\b(?:tool|software|app|platform|solution|alternative|dashboard|reporting|analytics)|trying\s+to\s+find\s+(?:a|an)\s+(?:[\w\s]{0,20})?\b(?:tool|software|app|platform|way)|need\s+(?:a|an)\s+(?:tool|software|app|reporting|dashboard|bi|analytics)|worth\s+it|anyone\s+using)\b/i;
+
+const FIRST_PERSON_OR_QUESTION =
+  /\b(i|i'm|i’ve|ive|we|we're|our|my|us|anyone|anybody|someone|what\s+do\s+you|which\s+one|recommendations?\??)\b|\?/i;
 
 const NEGATIVE_QUERY_SUFFIX =
   '-hiring -job -jobs -opportunity -resume -ctc -vacancy -recruiter -salary -intern -course';
@@ -265,6 +268,10 @@ export async function discoverBuyerLeads(
       return false;
     }
 
+    if (!FIRST_PERSON_OR_QUESTION.test(`${title} ${snippet}`)) {
+      return false;
+    }
+
     if (getPostDate(item) === 'TOO_OLD') return false;
 
     return true;
@@ -309,14 +316,14 @@ ${JSON.stringify(uniqueItems.slice(0, 20), null, 2)}
 
 Return ONLY a JSON array of objects with keys: name, role, company, source, excerpt, sourceUrl, postedDate, intent.`;
 
-    for (const model of ['gemini-3-flash-preview', 'gemini-3.5-flash-lite']) {
+    for (const model of ['gemini-3-flash-preview', 'gemini-3.5-flash-lite', 'gemini-3.8-flash']) {
       try {
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(20000),
             body: JSON.stringify({
               contents: [{ role: 'user', parts: [{ text: extractionPrompt }] }],
               generationConfig: {
@@ -362,12 +369,16 @@ Return ONLY a JSON array of objects with keys: name, role, company, source, exce
     }
   }
 
-  // Deterministic keyword-filtered fallback if Gemini timed out
+  // Deterministic keyword-filtered fallback if Gemini timed out (Reddit/HN/IH only — avoid unverified LinkedIn promo posts)
   if (prospects.length === 0 && uniqueItems.length > 0) {
     const coreKeywords = extractCoreKeywords(prompt);
     const relevantItems = uniqueItems.filter((item) => {
       const hay = `${item.title} ${item.snippet}`.toLowerCase();
-      return coreKeywords.length === 0 || coreKeywords.some((kw) => hay.includes(kw));
+      const isCommunityThread =
+        item.link.includes('reddit.com') ||
+        item.link.includes('news.ycombinator.com') ||
+        item.link.includes('indiehackers.com');
+      return isCommunityThread && (coreKeywords.length === 0 || coreKeywords.some((kw) => hay.includes(kw)));
     });
 
     const fallbackRoles = [
