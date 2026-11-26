@@ -124,17 +124,20 @@ async function fetchPostComments(postId: string, platform: 'facebook' | 'instagr
     const res = await fetch(`/api/meta/post-comments?postId=${encodeURIComponent(postId)}&platform=${platform}`);
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.data || []).map((c: any) => ({
-      id: c.id,
-      platform,
-      commenterName: c.from?.name || 'Anonymous',
-      commenterHandle: c.username ? `@${c.username}` : undefined,
-      avatarInitials: initialsFor(c.from?.name || 'A'),
-      avatarColor: colorForName(c.from?.name || 'Anonymous'),
-      text: c.message || c.text || '',
-      timestamp: c.timestamp || c.created_time || new Date().toISOString(),
-      likes: c.like_count || 0,
-    }));
+    return (data.data || []).map((c: any) => {
+      const displayName = c.from?.name || (platform === 'facebook' ? 'Facebook User' : 'Instagram User');
+      return {
+        id: c.id,
+        platform,
+        commenterName: displayName,
+        commenterHandle: c.username ? `@${c.username}` : undefined,
+        avatarInitials: initialsFor(c.from?.name || (platform === 'facebook' ? 'FB' : 'IG')),
+        avatarColor: colorForName(displayName),
+        text: c.message || c.text || '',
+        timestamp: c.timestamp || c.created_time || new Date().toISOString(),
+        likes: c.like_count || 0,
+      };
+    });
   } catch {
     return null;
   }

@@ -476,18 +476,24 @@ function metaSocialPlugin(env: Record<string, string>): Plugin {
           req.on('end', async () => {
             try {
               const { postContext, commenterName, commentText, platform } = JSON.parse(body || '{}');
+              const cleanName = (commenterName || '').trim();
+              const hasRealName = cleanName && !['anonymous', 'facebook user', 'instagram user', 'user'].includes(cleanName.toLowerCase());
               const geminiKey = env.GEMINI_API_KEY || '';
               if (!geminiKey) {
                 // Fallback without API key
-                const fallback = `Thanks so much, ${commenterName || 'there'}! 🙌 We'd love to tell you more — feel free to reach out or book a demo at vtabsquare.com!`;
+                const greeting = hasRealName ? `Thanks so much, ${cleanName}!` : 'Thanks for reaching out!';
+                const fallback = `${greeting} 🙌 We'd love to tell you more — feel free to reach out or book a demo at vtabsquare.com!`;
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ reply: fallback }));
                 return;
               }
+              const userLine = hasRealName
+                ? `A ${platform || 'social media'} user named "${cleanName}" commented on a post about: "${postContext}"`
+                : `A ${platform || 'social media'} user commented on a post about: "${postContext}" (do NOT address them as "Anonymous" or "User" — use a natural greeting like "Hi there!" or "Thanks for reaching out!")`;
               const prompt = `You are a professional social media manager for VTAB Square, a B2B enterprise AI analytics and reporting platform.
 
-A ${platform || 'social media'} user named "${commenterName}" commented on a post about: "${postContext}"
+${userLine}
 
 Their comment: "${commentText}"
 
@@ -496,7 +502,7 @@ Write a warm, professional, and engaging brand reply in 1-2 sentences. The tone 
 Reply directly (no prefix, no labels):`;
 
               const apiRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiKey}`,
                 {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
