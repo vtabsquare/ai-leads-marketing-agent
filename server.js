@@ -1,5 +1,10 @@
 import { preview } from 'vite';
 
+// Prevent @supabase/supabase-js realtime init from throwing on Node < 22
+if (typeof globalThis.WebSocket === 'undefined') {
+  globalThis.WebSocket = class {};
+}
+
 const port = Number(process.env.PORT) || 3005;
 const host = process.env.HOST || '127.0.0.1';
 

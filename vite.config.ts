@@ -984,6 +984,15 @@ async function appendLocalCreativeHistory(entry: CreativeHistoryEntry): Promise<
   await fs.writeFile(LOCAL_CREATIVE_HISTORY_PATH, JSON.stringify(next, null, 2), 'utf8');
 }
 
+function createServerSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string) {
+  if (typeof globalThis.WebSocket === 'undefined') {
+    (globalThis as any).WebSocket = class {};
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 async function getRecentCreativeHistory(
   env: Record<string, string>,
   workspaceId: string,
@@ -993,9 +1002,7 @@ async function getRecentCreativeHistory(
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (supabaseUrl && serviceRoleKey) {
     try {
-      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+      const supabaseAdmin = createServerSupabaseAdmin(supabaseUrl, serviceRoleKey);
       const { data, error } = await supabaseAdmin
         .from('creative_history')
         .select('*')
@@ -1023,9 +1030,7 @@ async function recordCreativeHistory(
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (supabaseUrl && serviceRoleKey) {
     try {
-      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+      const supabaseAdmin = createServerSupabaseAdmin(supabaseUrl, serviceRoleKey);
       const { error } = await supabaseAdmin.from('creative_history').insert({
         workspace_id: entry.workspace_id,
         campaign_id: entry.campaign_id || null,
@@ -1060,9 +1065,7 @@ function imageGenerationPlugin(env: Record<string, string>): Plugin {
             sendJson(500, { error: 'Missing Supabase server credentials' });
             return;
           }
-          const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
+          const supabaseAdmin = createServerSupabaseAdmin(supabaseUrl, serviceRoleKey);
 
           if (req.method === 'GET') {
             try {
@@ -1451,9 +1454,7 @@ function imageGenerationPlugin(env: Record<string, string>): Plugin {
             const finalRelevanceFeedback =
               compositeCheck.feedback || backdropRelevanceFeedback;
 
-            const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
+            const supabaseAdmin = createServerSupabaseAdmin(supabaseUrl, serviceRoleKey);
             await ensureCampaignImagesBucket(supabaseAdmin);
 
             const filePath = `${platform}/campaign-${campaignId}-${Date.now()}.jpg`;
