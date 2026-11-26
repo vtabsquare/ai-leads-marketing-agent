@@ -1028,6 +1028,49 @@ function LeadBotPage({
     }
   };
 
+  const syncLeadsFromDb = async () => {
+    const dbLeads = await fetchSupabaseLeads();
+    if (dbLeads && dbLeads.length > 0) {
+      const mapped: Lead[] = dbLeads.map((dl) => {
+        let sourceText = dl.source || 'Web';
+        let parsedUrl = '';
+        if (sourceText.includes('|||')) {
+          const parts = sourceText.split('|||');
+          sourceText = parts[0];
+          parsedUrl = parts[1];
+        }
+        const rawUrl = parsedUrl || dl.source_url || (dl as any).sourceUrl || '';
+        const resolvedUrl =
+          rawUrl ||
+          resolveLeadUrl({
+            name: dl.name,
+            source: sourceText,
+            sourceUrl: rawUrl,
+            excerpt: dl.excerpt,
+            company: dl.company,
+            role: dl.role,
+          });
+        return {
+          id: dl.id,
+          name: dl.name,
+          role: dl.role,
+          company: dl.company,
+          initials: dl.initials,
+          source: sourceText,
+          excerpt: dl.excerpt,
+          intent: dl.intent,
+          color: (dl.color as any) || 'sage',
+          addedThisWeek: dl.added_this_week,
+          fetchedDate: dl.fetched_date,
+          fetchedTime: dl.fetched_time,
+          fetchedTimestamp: Number(dl.fetched_timestamp),
+          sourceUrl: resolvedUrl,
+        };
+      });
+      setLeads(mapped);
+    }
+  };
+
   const refreshSchedules = async () => {
     try {
       const res = await fetch('/api/lead-schedules');
@@ -1035,7 +1078,13 @@ function LeadBotPage({
       const data = await res.json();
       if (Array.isArray(data.schedules)) {
         setSchedules(data.schedules);
-        setUnseenCount(Number(data.unseenLeadsCount) || 0);
+        const newUnseen = Number(data.unseenLeadsCount) || 0;
+        setUnseenCount((prev) => {
+          if (newUnseen > prev) {
+            syncLeadsFromDb();
+          }
+          return newUnseen;
+        });
       }
     } catch {
       // Ignore transient network errors during polling
@@ -1044,7 +1093,7 @@ function LeadBotPage({
 
   useEffect(() => {
     refreshSchedules();
-    const timer = setInterval(refreshSchedules, 20000);
+    const timer = setInterval(refreshSchedules, 15000);
     return () => clearInterval(timer);
   }, []);
 

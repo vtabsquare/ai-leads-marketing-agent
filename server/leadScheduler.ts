@@ -191,7 +191,8 @@ Rules:
 export async function discoverBuyerLeads(
   prompt: string,
   env: Record<string, string>,
-  existingUrls: Set<string> = new Set()
+  existingUrls: Set<string> = new Set(),
+  runIndex = 0
 ): Promise<{ leads: DiscoveredLead[]; searchQueries: string[]; rawMatched: number }> {
   const serperKey = env.SERPER_API_KEY || process.env.SERPER_API_KEY || '';
   const geminiKey =
@@ -207,6 +208,9 @@ export async function discoverBuyerLeads(
 
   const searchQueries = await buildDynamicSearchQueries(prompt, geminiKey);
 
+  const serperPage = (runIndex % 3) + 1;
+  const tbsWindow = runIndex % 3 === 1 ? 'qdr:m' : runIndex % 3 === 2 ? 'qdr:w' : 'qdr:m5';
+
   const allPromises = searchQueries.map(async (q) => {
     try {
       const res = await fetch('https://google.serper.dev/search', {
@@ -216,7 +220,7 @@ export async function discoverBuyerLeads(
           'Content-Type': 'application/json',
         },
         signal: AbortSignal.timeout(8000),
-        body: JSON.stringify({ q, tbs: 'qdr:m5', num: 10 }),
+        body: JSON.stringify({ q, tbs: tbsWindow, num: 10, page: serperPage }),
       });
       const data = await res.json();
       return data && Array.isArray(data.organic) ? data.organic : [];
@@ -588,7 +592,7 @@ async function executeScheduleRun(scheduleId: string, env: Record<string, string
 
   try {
     const existingUrls = await getExistingLeadUrlsFromDb(env);
-    const { leads } = await discoverBuyerLeads(item.prompt, env, existingUrls);
+    const { leads } = await discoverBuyerLeads(item.prompt, env, existingUrls, item.runsCount);
 
     let insertedCount = 0;
     const supabase = createAdminSupabase(env);
