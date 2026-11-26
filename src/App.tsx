@@ -50,6 +50,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Trash2,
   Upload,
   Users,
   Workflow,
@@ -821,6 +822,29 @@ function ApprovalQueue({ approvals, onApprove, onDismiss, onSeeAll }: { approval
   );
 }
 
+type LeadScheduleItem = {
+  id: string;
+  prompt: string;
+  startAt: string;
+  endAt: string;
+  intervalMinutes: number;
+  status: 'scheduled' | 'running' | 'paused' | 'completed';
+  createdAt: string;
+  lastRunAt?: string;
+  nextRunAt: string;
+  runsCount: number;
+  totalLeadsFound: number;
+  unseenLeadsCount: number;
+  lastRunNewLeads: number;
+  lastError?: string;
+};
+
+function toLocalDatetimeInput(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function LeadBotPage({
   leads,
   setLeads,
@@ -834,6 +858,13 @@ function LeadBotPage({
 }) {
   const [prompt, setPrompt] = useState('');
   const [searching, setSearching] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduleStart, setScheduleStart] = useState(() => toLocalDatetimeInput(Date.now()));
+  const [scheduleEnd, setScheduleEnd] = useState(() => toLocalDatetimeInput(Date.now() + 24 * 60 * 60 * 1000));
+  const [scheduleInterval, setScheduleInterval] = useState(30);
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
+  const [schedules, setSchedules] = useState<LeadScheduleItem[]>([]);
+  const [unseenCount, setUnseenCount] = useState(0);
   const [filter, setFilter] = useState<'All leads' | 'Today (Nov 5)' | 'High intent' | 'New this week'>('All leads');
   const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'intent-desc'>('date-desc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -997,6 +1028,148 @@ function LeadBotPage({
     }
   };
 
+  const refreshSchedules = async () => {
+    try {
+      const res = await fetch('/api/lead-schedules');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.schedules)) {
+        setSchedules(data.schedules);
+        setUnseenCount(Number(data.unseenLeadsCount) || 0);
+      }
+    } catch {
+      // Ignore transient network errors during polling
+    }
+  };
+
+  useEffect(() => {
+    refreshSchedules();
+    const timer = setInterval(refreshSchedules, 20000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const createSchedule = async () => {
+    if (!prompt.trim()) {
+      onToast({ title: 'Add a search brief first', detail: 'Enter what kind of buyers Lead Bot should search for.' });
+      return;
+    }
+    const startMs = new Date(scheduleStart).getTime();
+    const endMs = new Date(scheduleEnd).getTime();
+    if (!startMs || !endMs || endMs <= startMs) {
+      onToast({ title: 'Invalid schedule window', detail: 'End date & time must be after the start date & time.' });
+      return;
+    }
+    setCreatingSchedule(true);
+    try {
+      const res = await fetch('/api/lead-schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          startAt: new Date(startMs).toISOString(),
+          endAt: new Date(endMs).toISOString(),
+          intervalMinutes: scheduleInterval,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create schedule');
+      setShowScheduler(false);
+      await refreshSchedules();
+      onToast({
+        title: 'Lead Bot scheduler started',
+        detail: `Searching every ${scheduleInterval} mins until ${new Date(endMs).toLocaleString()}.`,
+      });
+      setTimeout(refreshSchedules, 8000);
+    } catch (err: any) {
+      onToast({ title: 'Schedule failed', detail: err.message || 'Could not create schedule.' });
+    } finally {
+      setCreatingSchedule(false);
+    }
+  };
+
+  const handleScheduleAction = async (id: string, action: 'pause' | 'resume' | 'stop' | 'runNow' | 'delete') => {
+    try {
+      if (action === 'delete') {
+        await fetch(`/api/lead-schedules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      } else {
+        await fetch(`/api/lead-schedules/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        });
+      }
+      await refreshSchedules();
+      if (action === 'runNow') {
+        await loadScheduledLeads();
+      }
+    } catch {
+      onToast({ title: 'Action failed', detail: 'Could not update schedule.' });
+    }
+  };
+
+  const loadScheduledLeads = async () => {
+    const dbLeads = await fetchSupabaseLeads();
+    if (dbLeads && dbLeads.length > 0) {
+      const mapped: Lead[] = dbLeads.map((dl) => {
+        let sourceText = dl.source || 'Web';
+        let parsedUrl = '';
+        if (sourceText.includes('|||')) {
+          const parts = sourceText.split('|||');
+          sourceText = parts[0];
+          parsedUrl = parts[1];
+        }
+        const rawUrl = parsedUrl || dl.source_url || (dl as any).sourceUrl || '';
+        const resolvedUrl =
+          rawUrl ||
+          resolveLeadUrl({
+            name: dl.name,
+            source: sourceText,
+            sourceUrl: rawUrl,
+            excerpt: dl.excerpt,
+            company: dl.company,
+            role: dl.role,
+          });
+        return {
+          id: dl.id,
+          name: dl.name,
+          role: dl.role,
+          company: dl.company,
+          initials: dl.initials,
+          source: sourceText,
+          excerpt: dl.excerpt,
+          intent: dl.intent,
+          color: (dl.color as any) || 'sage',
+          addedThisWeek: dl.added_this_week,
+          fetchedDate: dl.fetched_date,
+          fetchedTime: dl.fetched_time,
+          fetchedTimestamp: Number(dl.fetched_timestamp),
+          sourceUrl: resolvedUrl,
+        };
+      });
+      setLeads(mapped);
+    }
+
+    const unseenSchedules = schedules.filter((s) => s.unseenLeadsCount > 0);
+    await Promise.all(
+      unseenSchedules.map((s) =>
+        fetch(`/api/lead-schedules/${encodeURIComponent(s.id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'markSeen' }),
+        })
+      )
+    );
+    const loadedCount = unseenCount;
+    setUnseenCount(0);
+    await refreshSchedules();
+    if (loadedCount > 0) {
+      onToast({
+        title: `Loaded ${loadedCount} new ${loadedCount === 1 ? 'lead' : 'leads'}`,
+        detail: 'Your scheduled buyer leads are now at the top of the table.',
+      });
+    }
+  };
+
   return (
     <>
       <PageHeader eyebrow="PROSPECTING / LEAD BOT" title="Find the right people." description="Start with a signal. Get back to the people already looking for a better way.">
@@ -1014,9 +1187,282 @@ function LeadBotPage({
       </PageHeader>
       <section className="lead-prompt-card">
         <div className="lead-prompt-top"><div className="prompt-mark"><Target size={18} /></div><div><strong>What should Vtab look for?</strong><span>Describe a problem, intent or moment that points to a good fit.</span></div><div className="preview-label"><span />AI SIGNAL SEARCH</div></div>
-        <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="e.g. Find teams looking for an analytics dashboard tool or an alternative to Power BI…" rows={3} aria-label="Describe the prospect search" />
-        <div className="prompt-footer"><div className="prompt-suggestions"><span>TRY</span>{['Analytics dashboard tool', 'Alternative to Power BI', 'Looking for reporting software'].map((suggestion) => <button key={suggestion} onClick={() => setPrompt(suggestion)}>{suggestion}</button>)}</div><PrimaryButton onClick={runSearch} icon={searching ? LoaderCircle : Search} disabled={searching}>{searching ? 'Searching the web…' : 'Find prospects'}</PrimaryButton></div>
+        <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="e.g. Search for people who are looking to buy a reporting analytics dashboard kind of tool…" rows={3} aria-label="Describe the prospect search" />
+        <div className="prompt-footer">
+          <div className="prompt-suggestions">
+            <span>TRY</span>
+            {['Reporting analytics dashboard tool', 'Alternative to Power BI', 'Looking for reporting software'].map((suggestion) => (
+              <button key={suggestion} onClick={() => setPrompt(suggestion)}>{suggestion}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowScheduler((prev) => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12.5px',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                border: showScheduler ? '1px solid #46672c' : '1px solid #d4ded0',
+                background: showScheduler ? '#eef5e8' : '#ffffff',
+                color: '#1b3211',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <Clock3 size={14} />
+              {showScheduler ? 'Hide Scheduler' : 'Schedule Search'}
+            </button>
+            <PrimaryButton onClick={runSearch} icon={searching ? LoaderCircle : Search} disabled={searching}>
+              {searching ? 'Searching the web…' : 'Find prospects'}
+            </PrimaryButton>
+          </div>
+        </div>
+
+        {showScheduler && (
+          <div
+            style={{
+              marginTop: '14px',
+              padding: '14px 16px',
+              background: '#f7faf5',
+              border: '1px solid #dce6d7',
+              borderRadius: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <strong style={{ fontSize: '13px', color: '#142019', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={14} color="#46672c" /> Continuous Background Lead Scheduler
+                </strong>
+                <span style={{ fontSize: '11.5px', color: '#5d6d61' }}>
+                  Automatically searches Reddit, LinkedIn, X &amp; forums during your time window and saves new matching buyers to your database.
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#47574b', marginBottom: '4px' }}>START DATE &amp; TIME</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleStart}
+                  onChange={(e) => setScheduleStart(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cfd9cb', fontSize: '12.5px', background: '#fff' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#47574b', marginBottom: '4px' }}>END DATE &amp; TIME</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleEnd}
+                  onChange={(e) => setScheduleEnd(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cfd9cb', fontSize: '12.5px', background: '#fff' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#47574b', marginBottom: '4px' }}>CHECK FREQUENCY</label>
+                <select
+                  value={scheduleInterval}
+                  onChange={(e) => setScheduleInterval(Number(e.target.value))}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cfd9cb', fontSize: '12.5px', background: '#fff' }}
+                >
+                  <option value={15}>Every 15 minutes</option>
+                  <option value={30}>Every 30 minutes</option>
+                  <option value={60}>Every 1 hour</option>
+                  <option value={120}>Every 2 hours</option>
+                </select>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={createSchedule}
+                  disabled={creatingSchedule}
+                  style={{
+                    width: '100%',
+                    padding: '8px 14px',
+                    borderRadius: 7,
+                    border: 'none',
+                    background: '#142019',
+                    color: '#c9f36a',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: creatingSchedule ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Play size={13} />
+                  {creatingSchedule ? 'Scheduling…' : 'Start Scheduled Search'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
+
+      {schedules.length > 0 && (
+        <section
+          style={{
+            marginTop: '12px',
+            background: '#ffffff',
+            border: '1px solid #e2e8e0',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.7px', color: '#46672c', textTransform: 'uppercase' }}>
+              Scheduled Auto-Discovery ({schedules.length})
+            </span>
+            <button
+              type="button"
+              onClick={refreshSchedules}
+              style={{ background: 'transparent', border: 'none', color: '#5c6e60', fontSize: '11.5px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              <RefreshCw size={11} /> Sync
+            </button>
+          </div>
+          {schedules.map((s) => (
+            <div
+              key={s.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                padding: '9px 12px',
+                background: '#f9fbf8',
+                border: '1px solid #e8eee5',
+                borderRadius: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ minWidth: 220, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 2 }}>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      padding: '2px 7px',
+                      borderRadius: 4,
+                      background: s.status === 'running' ? '#e2f5c8' : s.status === 'completed' ? '#e8ecef' : s.status === 'paused' ? '#fef3c7' : '#e0f2fe',
+                      color: s.status === 'running' ? '#244a0c' : s.status === 'completed' ? '#475569' : s.status === 'paused' ? '#92400e' : '#0369a1',
+                    }}
+                  >
+                    {s.status}
+                  </span>
+                  <strong style={{ fontSize: '12.5px', color: '#142019' }}>{s.prompt}</strong>
+                </div>
+                <div style={{ fontSize: '11px', color: '#647568' }}>
+                  Window: {new Date(s.startAt).toLocaleString()} → {new Date(s.endAt).toLocaleString()} · Every {s.intervalMinutes}m ·{' '}
+                  <strong>{s.totalLeadsFound}</strong> new leads captured ({s.runsCount} {s.runsCount === 1 ? 'run' : 'runs'})
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {s.status !== 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => handleScheduleAction(s.id, 'runNow')}
+                    title="Run sweep right now"
+                    style={{ padding: '5px 9px', borderRadius: 6, border: '1px solid #d4ded0', background: '#fff', fontSize: '11.5px', fontWeight: 600, color: '#213a0e', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <RefreshCw size={11} /> Run now
+                  </button>
+                )}
+                {s.status === 'running' || s.status === 'scheduled' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleScheduleAction(s.id, 'pause')}
+                    title="Pause schedule"
+                    style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #d4ded0', background: '#fff', color: '#4b5a4e', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <Pause size={12} />
+                  </button>
+                ) : s.status === 'paused' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleScheduleAction(s.id, 'resume')}
+                    title="Resume schedule"
+                    style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #d4ded0', background: '#fff', color: '#244a0c', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <Play size={12} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => handleScheduleAction(s.id, 'delete')}
+                  title="Delete schedule"
+                  style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #ecd5d5', background: '#fff', color: '#991b1b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {unseenCount > 0 && (
+        <div
+          style={{
+            marginTop: '12px',
+            background: '#142019',
+            color: '#ffffff',
+            borderRadius: '10px',
+            padding: '12px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            border: '1px solid #2c4633',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="green-pulse" />
+            <div>
+              <strong style={{ fontSize: '13.5px', color: '#c9f36a' }}>
+                Found {unseenCount} new {unseenCount === 1 ? 'lead' : 'leads'} — want to take a look?
+              </strong>
+              <div style={{ fontSize: '12px', color: '#b8c8bc' }}>
+                Lead Bot's scheduled background search captured fresh matching buyers and updated your database.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={loadScheduledLeads}
+            style={{
+              background: '#c9f36a',
+              color: '#142019',
+              border: 'none',
+              borderRadius: '7px',
+              padding: '8px 14px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Take a look <ArrowRight size={13} />
+          </button>
+        </div>
+      )}
+
       <div className="search-disclosure"><ShieldCheck size={15} /><span>Matches are based on public signals. Review context before reaching out.</span><button onClick={() => onToast({ title: 'AI Discovery active', detail: 'Prospect discovery queries live web conversations and models verified buying urgency.' })}>How discovery works <ArrowRight size={12} /></button></div>
       
       <section className="lead-results-section">

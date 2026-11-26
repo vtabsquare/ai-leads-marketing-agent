@@ -13,6 +13,15 @@ import {
   scoreBackdropCandidateWithGemini,
   verifyFinalCompositeWithGemini,
 } from './src/lib/gemini.ts';
+import {
+  discoverBuyerLeads,
+  getExistingLeadUrlsFromDb,
+  loadSchedules,
+  createLeadSchedule,
+  updateLeadSchedule,
+  deleteLeadSchedule,
+  startLeadScheduler,
+} from './server/leadScheduler.ts';
 
 const CF_NEURONS_PER_IMAGE = 10; // @cf/black-forest-labs/flux-1-schnell 4 steps @ 1024x1024
 const CF_DAILY_NEURON_LIMIT = 10_000;
@@ -527,295 +536,21 @@ Reply directly (no prefix, no labels):`;
           return;
         }
 
-        // ─── Real Lead Search via Serper Google Search Engine (Strict Software Buyers from Past 5 Months) ───
+        // ─── Real Lead Search via Serper Google Search Engine (Dynamic Prompt-Driven & Deduplicated) ───
         if (req.url && req.url === '/api/search-leads' && req.method === 'POST') {
           let body = '';
           req.on('data', (chunk) => { body += chunk; });
           req.on('end', async () => {
             try {
               const { prompt } = JSON.parse(body || '{}');
-              const serperKey = env.SERPER_API_KEY || process.env.SERPER_API_KEY || '';
-              const geminiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
-
-              // Clean search keywords to focus on core tool concept
-              const clean = prompt
-                .replace(/people|who are|looking for|interested in|application|software|tool|find|teams|im|i'm|want|buyers/gi, '')
-                .trim() || prompt;
-
-              // Helper: Determine exact relative age and enforce strict 5-month cutoff
-              function getPostDate(item: any): string {
-                if (item.date && typeof item.date === 'string') return item.date;
-
-                const snipMatch = (item.snippet || '').match(/•\s*([0-9]+\s*(?:mo|month|w|week|d|day)s?\s*ago)/i);
-                if (snipMatch) return snipMatch[1];
-
-                const redditMatch = (item.link || '').match(/\/comments\/([a-z0-9]+)/i);
-                if (redditMatch) {
-                  const num = parseInt(redditMatch[1], 36);
-                  if (num < 3800000000) return 'TOO_OLD';
-                  if (num >= 4180000000) return '2 weeks ago';
-                  if (num >= 4120000000) return '1 mo ago';
-                  if (num >= 4060000000) return '2 mo ago';
-                  if (num >= 4000000000) return '3 mo ago';
-                  return '4 mo ago';
-                }
-
-                const liMatch = (item.link || '').match(/activity-([0-9]+)/);
-                if (liMatch) {
-                  const actId = parseInt(liMatch[1].slice(0, 10));
-                  if (actId < 7450000000) return 'TOO_OLD';
-                  if (actId >= 7510000000) return '2 weeks ago';
-                  if (actId >= 7490000000) return '1 mo ago';
-                  if (actId >= 7470000000) return '2 mo ago';
-                  return '3-4 mo ago';
-                }
-
-                return '1-3 mo ago';
-              }
-
-              // Targeted buyer queries strictly across active discussions within the last 5 months
-              const searchQueries = [
-                `site:reddit.com/r/BusinessIntelligence/comments ("reporting tool" OR "Power BI alternative" OR "dashboard tool" OR "software") -hiring`,
-                `site:reddit.com/r/dataengineering/comments ("reporting tool" OR "BI tool" OR "Power BI alternative" OR "Tableau alternative" OR "dashboard") -hiring`,
-                `site:reddit.com/r/analytics/comments ("reporting tool" OR "dashboard tool" OR "Power BI alternative" OR "Tableau alternative") -hiring`,
-                `site:reddit.com/r/SaaS/comments ("analytics dashboard" OR "reporting tool" OR "BI tool" OR "dashboard") ("looking for" OR "recommend") -hiring`,
-                `site:reddit.com/r/PowerBI/comments ("alternative" OR "reporting tool" OR "dashboard software") -hiring`,
-                `site:linkedin.com/posts ("reporting tool" OR "reporting software" OR "dashboard tool") ("looking for" OR "evaluating" OR "recommend") -hiring`,
-                `site:linkedin.com/posts ("alternative to Power BI" OR "alternative to Tableau" OR "replace Tableau" OR "replace PowerBI") -hiring`
-              ];
-
-              // Fetch all queries in parallel with strict 5-month Google filter (tbs: qdr:m5)
-              const allPromises = searchQueries.map(async (q) => {
-                try {
-                  const res = await fetch('https://google.serper.dev/search', {
-                    method: 'POST',
-                    headers: {
-                      'X-API-KEY': serperKey,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ q, tbs: 'qdr:m5', num: 10 })
-                  });
-                  const data = await res.json();
-                  return (data && Array.isArray(data.organic)) ? data.organic : [];
-                } catch (e) {
-                  console.warn('Serper query error for:', q, e);
-                  return [];
-                }
-              });
-
-              const queryResults = await Promise.all(allPromises);
-              const rawResults = queryResults.flat();
-
-              // STRICT PRE-FILTER: Only real Reddit threads or LinkedIn user posts from the past 5 months. Discard all blogs/articles/guides/jobs/old posts.
-              const filteredThreads = rawResults.filter((item: any) => {
-                const url = (item.link || '').toLowerCase();
-                const title = (item.title || '').toLowerCase();
-                const snippet = (item.snippet || '').toLowerCase();
-
-                // Discard Google redirect URLs
-                if (url.includes('google.com/goto')) return false;
-
-                const isRedditComment = url.includes('reddit.com') && url.includes('/comments/');
-                const isLinkedInPost = url.includes('linkedin.com/posts/');
-                const isXPost = url.includes('x.com/') || url.includes('twitter.com/');
-
-                if (!isRedditComment && !isLinkedInPost && !isXPost) return false;
-
-                // Discard listicles/articles/guides
-                if (
-                  url.includes('/blog/') || url.includes('/article/') || url.includes('medium.com') ||
-                  title.startsWith('10 best') || title.startsWith('top ') || title.includes('picks, costs') ||
-                  title.includes('guide to') || title.includes('best tools') || title.includes(' vs ') ||
-                  title.includes('cheat sheet') || title.includes('review')
-                ) {
-                  return false;
-                }
-
-                // Discard hiring/job postings
-                if (
-                  title.includes('hiring') || title.includes('job') || title.includes('career') ||
-                  title.includes('salary') || title.includes('intern') ||
-                  snippet.includes('we are hiring') || snippet.includes('job opening') || snippet.includes('job description') ||
-                  snippet.includes('apply now') || snippet.includes('candidate')
-                ) {
-                  return false;
-                }
-
-                // Strict 5-month age cutoff check
-                const age = getPostDate(item);
-                if (age === 'TOO_OLD') return false;
-
-                return true;
-              });
-
-              // Deduplicate by link
-              const seenLinks = new Set<string>();
-              const uniqueItems: any[] = [];
-              for (const item of filteredThreads) {
-                if (item.link && !seenLinks.has(item.link)) {
-                  seenLinks.add(item.link);
-                  uniqueItems.push({
-                    title: item.title,
-                    link: item.link,
-                    snippet: (item.snippet || '').slice(0, 220),
-                    date: getPostDate(item)
-                  });
-                }
-              }
-
-              // Step 2: Use Gemini with JSON mode to extract 10-14 verified software buyer leads from past 5 months
-              let prospects: any[] = [];
-              if (uniqueItems.length > 0 && geminiKey) {
-                const extractionPrompt = `You are a strict B2B Sales Prospector for VTAB Square, an AI reporting & analytics platform.
-User query: "${prompt}"
-
-Task: From these discussion threads from the PAST 5 MONTHS, extract 10 to 14 prospective BUYERS / DECISION MAKERS looking for reporting software, dashboard tools, or Power BI/Tableau alternatives.
-
-CRITICAL RULES:
-1. Target ONLY potential buyers and decision-makers (Founders, VP Analytics, BI Managers, Operations Leads, Data Architects).
-2. DO NOT include any job seekers, promoters, blog authors, or listicles.
-3. Every single lead MUST have postedDate set to their actual recent date (e.g. "2 weeks ago", "1 mo ago", "2 mo ago", "3 mo ago", "4 mo ago") from the input item. NEVER return "Recent" or undefined.
-4. "name": LinkedIn real author name, or Reddit username/handle (e.g. "u/Data_Lead_BI"). Never an article title!
-5. "role": Professional title (e.g. "Director of BI", "VP Analytics", "Data Architect", "Lead Data Engineer").
-6. "company": Company or industry domain (e.g. "Enterprise Logistics", "SaaS Scaleup", "Healthcare Tech", "FinTech").
-7. "source": "Reddit · r/BusinessIntelligence" or "LinkedIn · Post" etc.
-8. "excerpt": Direct 1-sentence quote of their need (max 95 chars).
-9. "sourceUrl": Exact link from the input.
-10. "postedDate": Date from input item (strictly past 5 months).
-11. "intent": Number 88-98.
-
-THREADS FROM THE PAST 5 MONTHS:
-${JSON.stringify(uniqueItems.slice(0, 22), null, 2)}
-
-Return ONLY a JSON array of objects with keys: name, role, company, source, excerpt, sourceUrl, postedDate, intent.`;
-
-                // Try gemini-3-flash-preview first, fallback to gemini-3.5-flash-lite
-                for (const model of ['gemini-3-flash-preview', 'gemini-3.5-flash-lite']) {
-                  try {
-                    const geminiRes = await fetch(
-                      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-                      {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          contents: [{ role: 'user', parts: [{ text: extractionPrompt }] }],
-                          generationConfig: {
-                            temperature: 0.1,
-                            responseMimeType: 'application/json',
-                            maxOutputTokens: 8192
-                          }
-                        })
-                      }
-                    );
-
-                    const geminiData = await geminiRes.json();
-                    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (rawText) {
-                      let parsed: any[] = [];
-                      try {
-                        parsed = JSON.parse(rawText);
-                      } catch {
-                        // Resilient repair if JSON was truncated
-                        const lastBrace = rawText.lastIndexOf('}');
-                        if (lastBrace !== -1) {
-                          try {
-                            const repaired = rawText.slice(0, lastBrace + 1).trim() + ']';
-                            parsed = JSON.parse(repaired);
-                          } catch {}
-                        }
-                      }
-                      if (Array.isArray(parsed) && parsed.length > 0) {
-                        // Ensure none of the parsed names look like blog titles
-                        prospects = parsed.filter((p: any) => {
-                          const n = (p.name || '').toLowerCase();
-                          return !n.includes('alternative') && !n.includes('reporting tool') && !n.includes('top ') && !n.includes('best ');
-                        });
-                        if (prospects.length >= 8) break;
-                      }
-                    }
-                  } catch (parseErr) {
-                    console.warn(`Gemini (${model}) extraction error:`, parseErr);
-                  }
-                }
-              }
-
-              // Fallback: If Gemini was unavailable, synthesize clean executive buyer personas directly from threads without EVER using article headlines
-              if (prospects.length === 0 && uniqueItems.length > 0) {
-                const fallbackRoles = [
-                  'Director of Business Intelligence',
-                  'VP Analytics & Data',
-                  'Head of Operations',
-                  'Lead Data Architect',
-                  'Director of Data Engineering',
-                  'Enterprise Systems Lead',
-                  'Chief Information Officer',
-                  'Head of Financial Reporting'
-                ];
-                const fallbackCompanies = [
-                  'Enterprise Logistics',
-                  'SaaS Scaleup',
-                  'Healthcare Systems',
-                  'FinTech Solutions',
-                  'Global Retail Corp',
-                  'Supply Chain Tech'
-                ];
-
-                prospects = uniqueItems.slice(0, 14).map((item: any, i: number) => {
-                  let platform = 'Reddit · r/BusinessIntelligence';
-                  let name = `u/BI_Director_${i + 1}`;
-                  if (item.link?.includes('linkedin.com')) {
-                    platform = 'LinkedIn · Post';
-                    const titleParts = (item.title || '').split(/['’]s Post| - | \| /);
-                    const cleanName = titleParts[0].trim();
-                    if (cleanName.split(' ').length <= 3 && !cleanName.includes(':') && !cleanName.toLowerCase().includes('alternative') && !cleanName.toLowerCase().includes('tool')) {
-                      name = cleanName;
-                    } else {
-                      name = `Executive Decision Maker #${i + 1}`;
-                    }
-                  } else if (item.link?.includes('reddit.com')) {
-                    const subMatch = item.link.match(/reddit\.com\/r\/([^/]+)/);
-                    platform = subMatch ? `Reddit · r/${subMatch[1]}` : 'Reddit · Discussion';
-                    name = `u/DataLead_${(subMatch ? subMatch[1] : 'BI').replace(/[^a-zA-Z]/g, '')}_${i + 1}`;
-                  }
-
-                  return {
-                    name,
-                    role: fallbackRoles[i % fallbackRoles.length],
-                    company: fallbackCompanies[i % fallbackCompanies.length],
-                    source: platform,
-                    excerpt: (item.snippet || item.title || '').slice(0, 95),
-                    sourceUrl: item.link,
-                    postedDate: item.date || '1 mo ago',
-                    intent: 90 + (i % 8),
-                  };
-                });
-              }
-
-              // Visual styling & initials
-              const colors = ['sage', 'lavender', 'rust', 'sky', 'amber'];
-              prospects = prospects.map((p: any, i: number) => {
-                const rawName = (p.name || 'User').replace(/^u\//, '');
-                const parts = rawName.split(/[ _]/);
-                const initials = parts.length >= 2
-                  ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-                  : rawName.slice(0, 2).toUpperCase();
-                const matchedItem = uniqueItems.find((u: any) => u.link && (u.link === p.sourceUrl || u.link === p.source_url)) || uniqueItems[i % uniqueItems.length];
-                const resolvedSourceUrl = p.sourceUrl || p.source_url || p.link || matchedItem?.link || '';
-                return {
-                  ...p,
-                  sourceUrl: resolvedSourceUrl,
-                  initials,
-                  color: colors[i % colors.length],
-                  intent: Math.min(99, Math.max(75, p.intent || 90)),
-                };
-              });
-
+              const existingUrls = await getExistingLeadUrlsFromDb(env);
+              const result = await discoverBuyerLeads(prompt || '', env, existingUrls);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({
-                leads: prospects,
-                searchQueries,
-                sourcesFound: prospects.length,
+                leads: result.leads,
+                searchQueries: result.searchQueries,
+                sourcesFound: result.leads.length,
               }));
             } catch (err: any) {
               console.error('Lead search error:', err);
@@ -827,15 +562,105 @@ Return ONLY a JSON array of objects with keys: name, role, company, source, exce
           return;
         }
 
+        // ─── Lead Bot Scheduler API (Persistent Background Discovery) ─────────────
+        if (req.url && req.url.startsWith('/api/lead-schedules')) {
+          const urlPath = req.url.split('?')[0];
+          const idPart = urlPath.replace('/api/lead-schedules', '').replace(/^\/+/, '');
+
+          if (req.method === 'GET' && !idPart) {
+            try {
+              const schedules = await loadSchedules();
+              const unseenLeadsCount = schedules.reduce((sum, s) => sum + (s.unseenLeadsCount || 0), 0);
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ schedules, unseenLeadsCount }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message, schedules: [], unseenLeadsCount: 0 }));
+            }
+            return;
+          }
+
+          if (req.method === 'POST' && !idPart) {
+            let body = '';
+            req.on('data', (chunk) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const { prompt, startAt, endAt, intervalMinutes } = JSON.parse(body || '{}');
+                if (!prompt || !String(prompt).trim()) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ error: 'Prompt is required to schedule lead discovery.' }));
+                  return;
+                }
+                const schedule = await createLeadSchedule(
+                  { prompt: String(prompt), startAt, endAt, intervalMinutes },
+                  env
+                );
+                res.statusCode = 201;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ schedule }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'PATCH' && idPart) {
+            let body = '';
+            req.on('data', (chunk) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const { action } = JSON.parse(body || '{}');
+                const updated = await updateLeadSchedule(idPart, action, env);
+                if (!updated) {
+                  res.statusCode = 404;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ error: 'Schedule not found' }));
+                  return;
+                }
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ schedule: updated }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'DELETE' && idPart) {
+            try {
+              const deleted = await deleteLeadSchedule(idPart);
+              res.statusCode = deleted ? 200 : 404;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ deleted }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+        }
+
         next();
       };
 
       return {
         name: 'meta-social-plugin',
         configureServer(server) {
+          startLeadScheduler(env);
           server.middlewares.use(metaMiddleware);
         },
         configurePreviewServer(server) {
+          startLeadScheduler(env);
           server.middlewares.use(metaMiddleware);
         },
       };

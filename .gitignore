@@ -25,6 +25,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .creative_history.json
+.lead-schedules.json
 test-output/
 test_clean_buyers.js
 
