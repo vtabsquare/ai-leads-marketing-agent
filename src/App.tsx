@@ -4081,7 +4081,7 @@ function SettingsPage({ onToast }: { onToast: (toast: ToastMessage) => void }) {
                       {metaStatus?.page?.name || 'Vtab Square'}
                     </strong>
                     <span style={{ fontSize: '11px', color: '#68776b' }}>
-                      Page ID: {metaStatus?.page?.id || '1355894157615718'} · Feed Live
+                      Page ID: {metaStatus?.page?.id || '1371928256002877'} · Feed Live
                     </span>
                   </div>
                 </div>
@@ -4096,7 +4096,7 @@ function SettingsPage({ onToast }: { onToast: (toast: ToastMessage) => void }) {
                       @{metaStatus?.instagram?.username || 'vtabsquare'}
                     </strong>
                     <span style={{ fontSize: '11px', color: '#68776b' }}>
-                      Business ID: {metaStatus?.instagram?.id || '17841429778510502'} · Media Live
+                      Business ID: {metaStatus?.instagram?.id || '17841422864583641'} · Media Live
                     </span>
                   </div>
                 </div>

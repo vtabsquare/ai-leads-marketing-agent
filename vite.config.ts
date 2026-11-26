@@ -43,9 +43,9 @@ import {
 } from './src/lib/imageProviders/compositor.ts';
 
 function metaSocialPlugin(env: Record<string, string>): Plugin {
-  const pageId = env.META_PAGE_ID || process.env.META_PAGE_ID || '1355894157615718';
+  const pageId = env.META_PAGE_ID || process.env.META_PAGE_ID || '1371928256002877';
   const pageToken = env.META_PAGE_ACCESS_TOKEN || env.VITE_META_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN || process.env.VITE_META_ACCESS_TOKEN || '';
-  const igUserId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID || process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '17841429778510502';
+  const igUserId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID || process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '17841422864583641';
 
   const metaMiddleware = async (req: any, res: any, next: any) => {
     // Health Check Endpoint for Render / Cloud Hosting

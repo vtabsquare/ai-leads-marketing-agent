@@ -40,8 +40,8 @@ export const SAMPLE_PUBLISHED_POSTS: PublishedPost[] = [
     imageUrl: '/mockups/vtab-reporting-hero.png',
     publishedAt: new Date(Date.now() - 3600000 * 26).toISOString(),
     platforms: {
-      facebook: { postId: '1355894157615718_sample_1', url: 'https://facebook.com/vtabsquare' },
-      instagram: { postId: '17841429778510502_sample_1', url: 'https://instagram.com/vtabsquare' },
+      facebook: { postId: '1371928256002877_sample_1', url: 'https://facebook.com/vtabsquare' },
+      instagram: { postId: '17841422864583641_sample_1', url: 'https://instagram.com/aivtabsquare' },
     },
   },
 ];

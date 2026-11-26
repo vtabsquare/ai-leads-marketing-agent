@@ -147,7 +147,7 @@ export async function publishToFacebook(
   }
 
   try {
-    const targetPage = pageId === 'me' ? '1355894157615718' : pageId;
+    const targetPage = pageId === 'me' ? '1371928256002877' : pageId;
     const fbEndpoint = imageUrl
       ? `https://graph.facebook.com/v19.0/${targetPage}/photos`
       : `https://graph.facebook.com/v19.0/${targetPage}/feed`;
@@ -219,7 +219,7 @@ export async function publishToInstagram(
     import.meta.env.VITE_META_ACCESS_TOKEN ||
     getStoredSocialTokens().instagram;
 
-  const targetIgId = igUserId || '17841429778510502';
+  const targetIgId = igUserId || '17841422864583641';
 
   if (!accessToken || !targetIgId) {
     return {
