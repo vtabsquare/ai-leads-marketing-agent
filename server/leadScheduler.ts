@@ -104,6 +104,15 @@ function getPostDate(item: any): string {
   return '1-3 mo ago';
 }
 
+const NOISE_PATTERN =
+  /\b(hiring|job|jobs|career|careers|salary|ctc|ectc|notice\s*period|resume|send\s*(?:your\s*)?cv|apply\s*now|opportunity|openings?|vacanc(?:y|ies)|recruiter|recruitment|talent\s*acquisition|years?\s*(?:of\s*)?experienc|experienced\s*professionals?|looking\s*for\s*a\s*role|looking\s*for\s*work|open\s*to\s*work|free\s*course|certification|bootcamp|webinar|tutorial|cheat\s*sheet|interview\s*questions|fresher|interns?)\b|#\w*jobs?\b/i;
+
+const BUYING_SIGNAL_PATTERN =
+  /\b(alternative|alternatives|replace|replacing|switch|switching|migrate|migrating|cheaper|low[\s-]?cost|affordable|pricing|expensive|licens(?:e|ing)|recommend|recommendation|recommendations|suggestions?|looking\s+for\s+(?:a|an|some|the\s+best)|searching\s+for|evaluating|compare|comparison|instead\s+of|what\s+(?:tool|software|app|bi|platform)|which\s+(?:tool|software|app|bi|platform)|best\s+(?:tool|software|app|alternative)|trying\s+to\s+find|need\s+(?:a|an)\s+(?:tool|software|app|reporting|dashboard|bi|analytics)|worth\s+it|anyone\s+using)\b/i;
+
+const NEGATIVE_QUERY_SUFFIX =
+  '-hiring -job -jobs -opportunity -resume -ctc -vacancy -recruiter -salary -intern -course';
+
 function extractCoreKeywords(prompt: string): string[] {
   const stopWords = new Set([
     'search', 'for', 'people', 'who', 'are', 'looking', 'to', 'buy', 'interested', 'in',
@@ -158,7 +167,7 @@ Rules:
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         const parsed = text ? JSON.parse(text) : null;
         if (Array.isArray(parsed) && parsed.length >= 3) {
-          return parsed.slice(0, 6).map((q: any) => String(q));
+          return parsed.slice(0, 6).map((q: any) => `${String(q)} ${NEGATIVE_QUERY_SUFFIX}`);
         }
       }
     } catch {
@@ -167,12 +176,12 @@ Rules:
   }
 
   return [
-    `site:reddit.com/r/BusinessIntelligence/comments ("${corePhrase}" OR "reporting tool" OR "analytics dashboard") ("looking for" OR "recommend" OR "alternative") -hiring -job`,
-    `site:reddit.com/r/SaaS/comments ("${corePhrase}" OR "software" OR "tool") ("looking for" OR "recommend" OR "buying") -hiring -job`,
-    `site:reddit.com/comments "${corePhrase}" ("looking for" OR "recommend" OR "alternative" OR "switching") -hiring -job -salary`,
-    `site:linkedin.com/posts "${corePhrase}" ("looking for" OR "evaluating" OR "recommend" OR "alternative") -hiring -job`,
-    `site:linkedin.com/posts "${keywords.slice(0, 2).join('" "') || corePhrase}" ("tool" OR "platform" OR "software") ("recommend" OR "demo") -hiring`,
-    `(site:x.com OR site:news.ycombinator.com/item) "${corePhrase}" ("looking for" OR "recommend" OR "alternative") -hiring`,
+    `site:reddit.com/r/BusinessIntelligence/comments ("${corePhrase}" OR "reporting tool" OR "analytics dashboard") ("looking for" OR "recommend" OR "alternative" OR "cheaper") ${NEGATIVE_QUERY_SUFFIX}`,
+    `site:reddit.com/r/PowerBI/comments ("alternative" OR "replace" OR "cheaper" OR "low cost" OR "switch") ${NEGATIVE_QUERY_SUFFIX}`,
+    `site:reddit.com/comments "${corePhrase}" ("looking for" OR "recommend" OR "alternative" OR "switching" OR "low cost") ${NEGATIVE_QUERY_SUFFIX}`,
+    `site:linkedin.com/posts "${corePhrase}" ("looking for" OR "evaluating" OR "recommend" OR "alternative" OR "switching") ${NEGATIVE_QUERY_SUFFIX}`,
+    `site:linkedin.com/posts ("alternative to" OR "replace" OR "looking for a") "${keywords.slice(0, 2).join('" "') || corePhrase}" ${NEGATIVE_QUERY_SUFFIX}`,
+    `(site:x.com OR site:news.ycombinator.com/item) "${corePhrase}" ("looking for" OR "recommend" OR "alternative" OR "cheaper") ${NEGATIVE_QUERY_SUFFIX}`,
   ];
 }
 
@@ -247,17 +256,12 @@ export async function discoverBuyerLeads(
       return false;
     }
 
-    if (
-      title.includes('hiring') ||
-      title.includes('job') ||
-      title.includes('career') ||
-      title.includes('salary') ||
-      title.includes('intern') ||
-      snippet.includes('we are hiring') ||
-      snippet.includes('job opening') ||
-      snippet.includes('apply now') ||
-      snippet.includes('looking for a job')
-    ) {
+    const combinedText = `${url} ${title} ${snippet}`;
+    if (NOISE_PATTERN.test(combinedText)) {
+      return false;
+    }
+
+    if (!BUYING_SIGNAL_PATTERN.test(`${title} ${snippet}`)) {
       return false;
     }
 
@@ -341,7 +345,13 @@ Return ONLY a JSON array of objects with keys: name, role, company, source, exce
           if (Array.isArray(parsed) && parsed.length > 0) {
             prospects = parsed.filter((p: any) => {
               const n = (p.name || '').toLowerCase();
-              return !n.includes('10 best') && !n.includes('top ') && (p.intent || 85) >= 75;
+              const text = `${p.role || ''} ${p.excerpt || ''} ${p.sourceUrl || ''}`;
+              return (
+                !n.includes('10 best') &&
+                !n.includes('top ') &&
+                !NOISE_PATTERN.test(text) &&
+                (p.intent || 85) >= 75
+              );
             });
             if (prospects.length > 0) break;
           }
@@ -376,7 +386,7 @@ Return ONLY a JSON array of objects with keys: name, role, company, source, exce
       'Digital Operations',
     ];
 
-    prospects = (relevantItems.length > 0 ? relevantItems : uniqueItems).slice(0, 12).map((item, i) => {
+    prospects = relevantItems.slice(0, 12).map((item, i) => {
       let platform = 'Web · Discussion';
       let name = `Buyer_Lead_${i + 1}`;
       if (item.link.includes('linkedin.com')) {
